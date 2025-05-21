@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Adventure Game</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .game-container {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .story-text {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .choice-btn {
+            background-color: #4a4a4a;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .choice-btn:hover {
+            background-color: #5a5a5a;
+        }
+        .scene-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background-color: #3a3a3a; /* Fallback color if image fails to load */
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .sound-control {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <img id="sceneImage" class="scene-image" src="" alt="Scene illustration" onerror="this.src='/images/test.jpg'">
+        <div id="story" class="story-text"></div>
+        <div id="choices" class="choices"></div>
+        <div class="controls">
+            <button class="sound-control" onclick="toggleSound()">🔊</button>
+            <span id="soundStatus">Sound: On</span>
+        </div>
+    </div>
+
+    <script>
+        let gameId = null;
+        let currentAudio = null;
+        let soundEnabled = true;
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundStatus').textContent = `Sound: ${soundEnabled ? 'On' : 'Off'}`;
+            if (currentAudio) {
+                if (soundEnabled) {
+                    currentAudio.play();
+                } else {
+                    currentAudio.pause();
+                }
+            }
+        }
+
+        function playSound(soundUrl) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            if (soundEnabled && soundUrl) {
+                currentAudio = new Audio(soundUrl);
+                currentAudio.loop = true;
+                currentAudio.play().catch(error => {
+                    console.log('Audio playback failed:', error);
+                });
+            }
+        }
+
+        async function startGame() {
+            const response = await fetch('/api/game/start', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            gameId = data.gameId;
+            updateScene(data.scene);
+        }
+
+        async function makeChoice(choice) {
+            const response = await fetch('/api/game/make-choice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ gameId, choice })
+            });
+            const data = await response.json();
+            updateScene(data.scene);
+        }
+
+        function updateScene(scene) {
+            document.getElementById('story').textContent = scene.text;
+            const sceneImage = document.getElementById('sceneImage');
+            sceneImage.src = scene.image;
+            playSound(scene.sound);
+            
+            const choicesContainer = document.getElementById('choices');
+            choicesContainer.innerHTML = '';
+            
+            scene.choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'choice-btn';
+                button.textContent = choice.text;
+                button.onclick = () => makeChoice(choice.id);
+                choicesContainer.appendChild(button);
+            });
+        }
+
+        // Start the game when the page loads
+        startGame();
+    </script>
+</body>
+</html> 

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Health Support Chatbot</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f5f5;
+            --text-color: #333;
+            --bot-message: #e3f2fd;
+            --user-message: #4a90e2;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--secondary-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            border-radius: 8px;
+            max-width: 70%;
+        }
+
+        .bot-message {
+            background: var(--bot-message);
+            margin-right: auto;
+        }
+
+        .user-message {
+            background: var(--user-message);
+            color: white;
+            margin-left: auto;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #357abd;
+        }
+
+        .disclaimer {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .video-input {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .video-input input {
+            width: 100%;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .processed-videos {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .video-item {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mental Health Support Chatbot</h1>
+    </div>
+
+    <div class="container">
+        <div class="video-input">
+            <h3>Add YouTube Video</h3>
+            <input type="text" id="videoId" placeholder="Enter YouTube Video ID">
+            <button onclick="processVideo()">Process Video</button>
+        </div>
+
+        <div class="processed-videos" id="processedVideos">
+            <h3>Processed Videos</h3>
+            <div id="videoList">
+                <% if (processedVideos && processedVideos.length > 0) { %>
+                    <% processedVideos.forEach(video => { %>
+                        <div class="video-item">
+                            <p><strong>Video ID:</strong> <%= video.id %></p>
+                            <p><strong>Summary:</strong> <%= video.summary %></p>
+                            <p><strong>Processed:</strong> <%= new Date(video.timestamp).toLocaleString() %></p>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <p>No videos have been processed yet. Add a YouTube video to get started.</p>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message bot-message">
+                Hello! I'm here to provide mental health support based on professional content. 
+                <% if (processedVideos.length === 0) { %>
+                    Please add a YouTube video first to get specific advice from its content.
+                <% } else { %>
+                    I have processed <%= processedVideos.length %> video(s) and can provide specific advice based on their content.
+                <% } %>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+        <div class="disclaimer">
+            This chatbot provides general information and support. It is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your mental health professional or other qualified health provider with any questions you may have.
+        </div>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const userInput = document.getElementById('userInput');
+            const message = userInput.value.trim();
+            
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            userInput.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+                let botMessage = data.response;
+                
+                if (!data.hasVideoContext) {
+                    botMessage += "\n\nNote: I'm providing general advice as no videos have been processed yet.";
+                }
+                
+                addMessage(botMessage, 'bot');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+            }
+        }
+
+        async function processVideo() {
+            const videoIdInput = document.getElementById('videoId');
+            const videoId = videoIdInput.value.trim();
+            
+            if (!videoId) {
+                addMessage('Please enter a valid YouTube video ID', 'bot');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/process-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ videoId })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    addMessage(`Error: ${data.error}`, 'bot');
+                } else {
+                    addMessage(`Video processed successfully!\n\nSummary of extracted content:\n${data.summary}`, 'bot');
+                    // Refresh the page to show updated video list
+                    location.reload();
+                }
+                videoIdInput.value = '';
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Error processing video. Please try again.', 'bot');
+            }
+        }
+
+        function addMessage(text, sender) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html> 
